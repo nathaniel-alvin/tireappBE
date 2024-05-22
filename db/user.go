@@ -8,18 +8,18 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/types"
 )
 
-type UserStore interface {
-	GetUserByEmail(email string) (*User, error)
-	CreateUser(User) (int, error)
-	GetUserById(id int) (*User, error)
+type UserRepo interface {
+	GetUserByEmail(email string) (*types.User, error)
+	CreateUser(u types.User) (int, error)
+	GetUserById(id int) (*types.User, error)
 }
 
-type Store struct {
+type UserDatabase struct {
 	db *sqlx.DB
 }
 
-func NewStore(db *sqlx.DB) *Store {
-	return &Store{
+func NewUserRepo(db *sqlx.DB) *UserDatabase {
+	return &UserDatabase{
 		db: db,
 	}
 }
