@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS Image (
     id SERIAL PRIMARY KEY,
-    scan_id INT REFERENCES Scanned_Tire(id),
+    scan_id INT REFERENCES Tire_Inventory(id),
     data_url VARCHAR(255),
     type VARCHAR(255),
     size INT,

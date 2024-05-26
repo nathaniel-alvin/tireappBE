@@ -34,3 +34,18 @@ func Encode(w http.ResponseWriter, status int, v any) error {
 func WriteError(w http.ResponseWriter, status int, err error) {
 	Encode(w, status, map[string]string{"error": err.Error()})
 }
+
+func GetTokenFromRequest(r *http.Request) string {
+	tokenAuth := r.Header.Get("Authorization")
+	tokenQuery := r.URL.Query().Get("token")
+
+	if tokenAuth != "" {
+		return tokenAuth
+	}
+
+	if tokenQuery != "" {
+		return tokenQuery
+	}
+
+	return ""
+}

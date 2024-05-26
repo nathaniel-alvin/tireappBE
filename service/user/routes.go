@@ -14,10 +14,10 @@ import (
 )
 
 type Handler struct {
-	store types.UserStore
+	store types.UserRepo
 }
 
-func NewHandler(store types.UserStore) *Handler {
+func NewHandler(store types.UserRepo) *Handler {
 	return &Handler{
 		store: store,
 	}
@@ -43,7 +43,7 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check user exists
-	u, err := h.store.GetUserByEmail(req.Email)
+	u, err := h.store.GetUserByEmail(r.Context(), req.Email)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("incorrect email or password"))
 		return

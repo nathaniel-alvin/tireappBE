@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS Scanned_Tire (
+CREATE TABLE IF NOT EXISTS Tire_Inventory (
   id SERIAL PRIMARY KEY,
   user_id INT REFERENCES Account(id) NOT NULL,
   tire_id INT REFERENCES Tire_Model(id) NOT NULL,

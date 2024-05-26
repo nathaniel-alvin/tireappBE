@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS Workshop (
   id SERIAL PRIMARY KEY,
-  scan_id INT REFERENCES Scanned_Tire(id) NOT NULL,
+  scan_id INT REFERENCES Tire_Inventory(id) NOT NULL,
   name VARCHAR(255) NOT NULL,
   address VARCHAR(255),
   contact_number VARCHAR(255),

@@ -1,1 +1,1 @@
-DROP TABLE IF EXISTS Scanned_Tire;
+DROP TABLE IF EXISTS Tire_Inventory;

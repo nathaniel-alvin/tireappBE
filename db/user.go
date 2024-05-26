@@ -8,12 +8,6 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/types"
 )
 
-type UserRepo interface {
-	GetUserByEmail(email string) (*types.User, error)
-	CreateUser(u types.User) (int, error)
-	GetUserById(id int) (*types.User, error)
-}
-
 type UserDatabase struct {
 	db *sqlx.DB
 }
@@ -24,7 +18,7 @@ func NewUserRepo(db *sqlx.DB) *UserDatabase {
 	}
 }
 
-func (s *Store) GetUserByEmail(email string) (*types.User, error) {
+func (s *UserDatabase) GetUserByEmail(email string) (*types.User, error) {
 	users := []types.User{}
 	err := s.db.Select(&users, "SELECT * FROM account WHERE email = $1", email)
 	if err != nil {
@@ -42,11 +36,16 @@ func (s *Store) GetUserByEmail(email string) (*types.User, error) {
 	return &users[0], nil
 }
 
-func (s *Store) GetUserById(id int) (*types.User, error) {
-	return nil, nil
+func (s *UserDatabase) GetUserById(id int) (*types.User, error) {
+	user := types.User{}
+	err := s.db.Select(&user, "SELECT * FROM account where id = $1", id)
+	if err != nil {
+		return nil, err
+	}
+	return &user, err
 }
 
-func (s *Store) CreateUser(u types.User) (int, error) {
+func (s *UserDatabase) CreateUser(u types.User) (int, error) {
 	// begin transaction
 	tx, err := s.db.Beginx()
 	if err != nil {

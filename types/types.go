@@ -2,14 +2,7 @@ package types
 
 import (
 	"net/http"
-	"time"
 )
-
-type UserStore interface {
-	GetUserByEmail(email string) (*User, error)
-	CreateUser(User) (int, error)
-	GetUserById(id int) (*User, error)
-}
 
 type UploadStore interface {
 	InsertFileFromRequest(r *http.Request, userID int) (ImageID, error)

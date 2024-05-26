@@ -29,7 +29,9 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/inventories/{id}/workshops", h.handleInventorySetWorkshop).Methods("POST")
 }
 
-func (h *Handler) handleInventoryIndex(w http.ResponseWriter, r *http.Request)        {}
+func (h *Handler) handleInventoryIndex(w http.ResponseWriter, r *http.Request) {
+	h.store.GetInventories(r.Context())
+}
 func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request)         {}
 func (h *Handler) handleInventoryCreate(w http.ResponseWriter, r *http.Request)       {}
 func (h *Handler) handleInventoryEdit(w http.ResponseWriter, r *http.Request)         {}

@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS Vehicle (
   id SERIAL PRIMARY KEY,
-  scan_id INT REFERENCES Scanned_Tire(id) NOT NULL,
+  scan_id INT REFERENCES Tire_Inventory(id) NOT NULL,
   license_plate VARCHAR(255) NOT NULL,
   color VARCHAR(255),
   brand VARCHAR(255),

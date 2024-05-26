@@ -83,7 +83,7 @@ func (s Store) InsertFileFromRequest(r *http.Request, userID int) (types.ImageID
 		return types.ImageID(0), err
 	}
 
-	err = tx.QueryRowx("INSERT INTO scanned_tire (user_id, tire_id, is_saved, created_at) VALUES ($1, $2, $3, $4) RETURNING id;", userID, TireID, false, time.Now()).Scan(&ScannedTireID)
+	err = tx.QueryRowx("INSERT INTO tire_inventory (user_id, tire_id, is_saved, created_at) VALUES ($1, $2, $3, $4) RETURNING id;", userID, TireID, false, time.Now()).Scan(&ScannedTireID)
 	if err != nil {
 		log.Printf("Failed to create scanned tire: %v", err)
 		return types.ImageID(0), err
