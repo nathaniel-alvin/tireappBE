@@ -15,6 +15,7 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.17.1
 	github.com/jmoiron/sqlx v1.4.0
 	golang.org/x/crypto v0.22.0
+	golang.org/x/tools v0.10.0
 )
 
 require (

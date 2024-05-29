@@ -26,6 +26,8 @@ func NewHandler(store types.UserRepo) *Handler {
 func (h *Handler) RegisterRoutes(router *mux.Router) {
 	router.HandleFunc("/login", h.handleLogin).Methods("POST")
 	router.HandleFunc("/register", h.handleRegister).Methods("POST")
+
+	router.HandleFunc("/refresh", auth.WithJWTAuth(h.handleRefresh, h.store)).Methods("GET")
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
@@ -54,14 +56,13 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	secret := []byte(config.Envs.JWTSecret)
-	token, err := auth.CreateJWT(secret, u.ID, config.Envs.JWTExpirationInSeconds)
+	tokenStr, err := auth.CreateTokensAndSetCookies(w, u.ID, config.Envs.JWTExpirationInSeconds)
 	if err != nil {
 		utils.WriteError(w, http.StatusInternalServerError, err)
 		return
 	}
 
-	utils.Encode(w, http.StatusOK, map[string]string{"token": token})
+	utils.Encode(w, http.StatusOK, map[string]string{"token": tokenStr})
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +80,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check if email has been used
-	if _, err := h.store.GetUserByEmail(req.Email); err == nil {
+	if _, err := h.store.GetUserByEmail(r.Context(), req.Email); err == nil {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user with email %s already exixsts", req.Email))
 		return
 	}
@@ -89,7 +90,7 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("fail to hash password: %w", err))
 	}
 
-	if _, err = h.store.CreateUser(types.User{
+	if err = h.store.CreateUser(r.Context(), &types.User{
 		ID:         0,
 		Email:      req.Email,
 		Password:   hashedPassword,
@@ -102,4 +103,23 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 	}
 
 	utils.Encode(w, http.StatusCreated, nil)
+}
+
+func (h *Handler) handleRefresh(w http.ResponseWriter, r *http.Request) {
+	c, err := r.Cookie("token")
+	if err != nil {
+		if err == http.ErrNoCookie {
+			utils.WriteError(w, http.StatusUnauthorized, err)
+			return
+		}
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+	err = auth.TokenRefresher(w, c, config.Envs.JWTExpirationInSeconds)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	utils.Encode(w, http.StatusOK, nil)
 }

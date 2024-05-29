@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -14,20 +13,29 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/utils"
 )
 
+var secret = []byte(config.Envs.JWTSecret)
+
 type Claims struct {
-	jwt.RegisteredClaims
 	UserID int `json:"userId"`
+	jwt.RegisteredClaims
 }
-
-type contextKey string
-
-const UserKey contextKey = "userID"
 
 func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserRepo) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		tokenString := utils.GetTokenFromRequest(r)
+		c, err := r.Cookie("token")
+		if err != nil {
+			if err == http.ErrNoCookie {
+				permissionDenied(w)
+				return
+			}
+			utils.WriteError(w, http.StatusBadRequest, err)
+			return
+		}
+		tokenString := c.Value
 
-		token, err := ValidateJWT(tokenString)
+		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
+			return secret, nil
+		})
 		if err != nil {
 			log.Printf("failed to validate token: %v", err)
 			permissionDenied(w)
@@ -40,12 +48,12 @@ func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserRepo) http.Handle
 			return
 		}
 
-		claims := token.Claims.(jwt.MapClaims)
-		str := claims["userID"].(string)
-
-		userID, err := strconv.Atoi(str)
-		if err != nil {
-			log.Printf("failed to convert userID to int: %v", err)
+		var userID int
+		claims, ok := token.Claims.(*Claims)
+		if ok && token.Valid {
+			userID = claims.UserID
+		} else {
+			log.Printf("invalid token for claims")
 			permissionDenied(w)
 			return
 		}
@@ -67,21 +75,100 @@ func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserRepo) http.Handle
 	}
 }
 
-func CreateJWT(secret []byte, userId int, expireDuration int64) (string, error) {
-	expiration := time.Second * time.Duration(expireDuration)
+func CreateTokensAndSetCookies(w http.ResponseWriter, userID int, expireDuration int64) (string, error) {
+	accessToken, exp, err := createJWT(userID, expireDuration)
+	if err != nil {
+		return "", err
+	}
+
+	setCookie(w, "token", accessToken, exp)
+
+	return accessToken, nil
+}
+
+func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64) error {
+	fmt.Printf("in function")
+	tknStr := c.Value
+	claims := &Claims{}
+	token, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
+		return secret, nil
+	})
+	fmt.Printf("1")
+	if err != nil {
+		if err == jwt.ErrSignatureInvalid {
+			// utils.WriteError(w, http.StatusUnauthorized, err)
+			return err
+		}
+		// utils.WriteError(w, http.StatusBadRequest, err)
+		return err
+	}
+	if !token.Valid {
+		// utils.WriteError(w, http.StatusUnauthorized, err)
+		return err
+	}
+
+	fmt.Printf("2")
+	// cannot refresh token when expire time > 30sec
+	// if time.Until(claims.ExpiresAt.Time) > 30*time.Second {
+	// 	return err
+	// }
+	fmt.Printf("3")
+	var userID int
+	// claims, ok := token.Claims.(*Claims)
+	// fmt.Printf(""claims)
+	if claims == nil {
+		return fmt.Errorf("empty claim")
+	}
+	userID = claims.UserID
+	// if ok && token.Valid && claims != nil {
+	// 	userID = claims.UserID
+	// } else {
+	// 	log.Printf("invalid token for claims")
+	// 	permissionDenied(w)
+	// 	return err
+	// }
+
+	fmt.Printf("4")
+	newToken, _, err := createJWT(userID, expireDuration)
+	if err != nil {
+		// utils.WriteError(w, http.StatusInternalServerError, err)
+		return err
+	}
+
+	expirationDuration := time.Second * time.Duration(expireDuration)
+	expirationTime := time.Now().Add(expirationDuration)
+	setCookie(w, "token", newToken, expirationTime)
+
+	return nil
+}
+
+func createJWT(userID int, expireDuration int64) (string, time.Time, error) {
+	expirationDuration := time.Second * time.Duration(expireDuration)
+	expirationTime := time.Now().Add(expirationDuration)
 	claims := &Claims{
-		UserID: userId,
+		UserID: userID,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(expiration)),
+			ExpiresAt: jwt.NewNumericDate(expirationTime),
 		},
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
 	tokenString, err := token.SignedString(secret)
 	if err != nil {
-		return "", err
+		return "", time.Now(), err
 	}
-	return tokenString, nil
+	return tokenString, expirationTime, nil
+}
+
+func setCookie(w http.ResponseWriter, name, token string, expiration time.Time) {
+	cookie := new(http.Cookie)
+	cookie.Name = name
+	cookie.Value = token
+	cookie.Expires = expiration
+	cookie.Path = "/"
+	cookie.HttpOnly = true
+
+	http.SetCookie(w, cookie)
 }
 
 func permissionDenied(w http.ResponseWriter) {
@@ -93,17 +180,6 @@ func ValidateJWT(tokenString string) (*jwt.Token, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
 		}
-
-		return []byte(config.Envs.JWTSecret), nil
+		return secret, nil
 	})
 }
-
-// from ecom
-// func GetUserIDFromContext(ctx context.Context) int {
-// 	userID, ok := ctx.Value(UserKey).(int)
-// 	if !ok {
-// 		return -1
-// 	}
-//
-// 	return userID
-// }

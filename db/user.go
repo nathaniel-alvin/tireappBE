@@ -8,17 +8,17 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/types"
 )
 
-type UserDatabase struct {
+type UserRepo struct {
 	db *sqlx.DB
 }
 
-func NewUserRepo(db *sqlx.DB) *UserDatabase {
-	return &UserDatabase{
+func NewUserRepo(db *sqlx.DB) *UserRepo {
+	return &UserRepo{
 		db: db,
 	}
 }
 
-func (s *UserDatabase) GetUserByEmail(email string) (*types.User, error) {
+func (s *UserRepo) GetUserByEmail(ctx context.Context, email string) (*types.User, error) {
 	users := []types.User{}
 	err := s.db.Select(&users, "SELECT * FROM account WHERE email = $1", email)
 	if err != nil {
@@ -36,37 +36,34 @@ func (s *UserDatabase) GetUserByEmail(email string) (*types.User, error) {
 	return &users[0], nil
 }
 
-func (s *UserDatabase) GetUserById(id int) (*types.User, error) {
+func (s *UserRepo) GetUserById(ctx context.Context, id int) (*types.User, error) {
 	user := types.User{}
-	err := s.db.Select(&user, "SELECT * FROM account where id = $1", id)
+	err := s.db.Get(&user, "SELECT * FROM account where id = $1", id)
 	if err != nil {
 		return nil, err
 	}
 	return &user, err
 }
 
-func (s *UserDatabase) CreateUser(u types.User) (int, error) {
+func (s *UserRepo) CreateUser(ctx context.Context, u *types.User) error {
 	// begin transaction
 	tx, err := s.db.Beginx()
 	if err != nil {
-		return 0, err
+		return err
 	}
 	defer tx.Rollback()
 
-	var userId int
-
 	// insert into table and return the id
-	err = tx.QueryRowx("INSERT INTO account (email, password, display_name) VALUES ($1, $2, $3) RETURNING id;", u.Email, u.Password, u.Username).Scan(&userId)
-	if err != nil {
-		return 0, err
-	}
+	tx.MustExec("INSERT INTO account (email, password, display_name) VALUES ($1, $2, $3);", u.Email, u.Password, u.Username)
 
 	// commit if all operation are successful
 	if err := tx.Commit(); err != nil {
-		return 0, err
+		return err
 	}
 
-	return userId, nil
+	return nil
 }
 
-func getUserByEmail(ctx context.Context)
+func getUserByEmail(ctx context.Context, email string) (*types.User, error) {
+	return nil, nil
+}

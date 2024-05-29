@@ -1,24 +1,31 @@
 package inventory
 
 import (
+	"fmt"
 	"net/http"
+	"strconv"
 
 	"github.com/gorilla/mux"
-	"github.com/nathaniel-alvin/tireappBE/db"
+	tireappbe "github.com/nathaniel-alvin/tireappBE"
+	"github.com/nathaniel-alvin/tireappBE/service/auth"
+	"github.com/nathaniel-alvin/tireappBE/types"
+	"github.com/nathaniel-alvin/tireappBE/utils"
 )
 
 type Handler struct {
-	store db.InventoryRepo
+	store     types.InventoryRepo
+	userStore types.UserRepo
 }
 
-func NewHandler(store db.InventoryRepo) *Handler {
+func NewHandler(store types.InventoryRepo, userStore types.UserRepo) *Handler {
 	return &Handler{
-		store: store,
+		store:     store,
+		userStore: userStore,
 	}
 }
 
 func (h *Handler) RegisterRoutes(router *mux.Router) {
-	router.HandleFunc("/inventories", h.handleInventoryIndex).Methods("GET")
+	router.HandleFunc("/inventories", auth.WithJWTAuth(h.handleInventoryIndex, h.userStore)).Methods("GET")
 	router.HandleFunc("/inventories/{id}", h.handleInventoryView).Methods("GET")
 
 	router.HandleFunc("/inventories", h.handleInventoryCreate).Methods("POST")
@@ -30,9 +37,31 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) handleInventoryIndex(w http.ResponseWriter, r *http.Request) {
-	h.store.GetInventories(r.Context())
+	userID := tireappbe.UserIDFromContext(r.Context())
+
+	tires, err := h.store.GetInventories(r.Context(), userID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.Encode(w, http.StatusOK, tires)
 }
-func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request)         {}
+
+func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request) {
+	_ = tireappbe.UserIDFromContext(r.Context())
+
+	vars := mux.Vars(r)
+	str, ok := vars["id"]
+	if !ok {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
+	}
+
+	_, err := strconv.Atoi(str)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
+	}
+}
 func (h *Handler) handleInventoryCreate(w http.ResponseWriter, r *http.Request)       {}
 func (h *Handler) handleInventoryEdit(w http.ResponseWriter, r *http.Request)         {}
 func (h *Handler) handleInventoryDelete(w http.ResponseWriter, r *http.Request)       {}

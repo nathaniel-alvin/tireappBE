@@ -1,23 +1,32 @@
 package types
 
-import "time"
+import (
+	"context"
+	"database/sql"
+	"time"
+)
+
+type InventoryRepo interface {
+	GetInventories(ctx context.Context, userID int) (*[]TireInventory, error)
+	GetInventoriesByID(ctx context.Context, userID int, inventoryID int) (*TireInventory, error)
+}
 
 type Image struct {
-	ID        ImageID   `json:"id"`
-	Type      string    `json:"type"`
-	Size      uint64    `json:"size"`
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	DeletedAt time.Time `json:"deletedAt"`
+	ID        ImageID      `json:"id"`
+	Type      string       `json:"type"`
+	Size      uint64       `json:"size"`
+	CreatedAt time.Time    `json:"createdAt"`
+	UpdatedAt sql.NullTime `json:"updatedAt"`
+	DeletedAt sql.NullTime `json:"deletedAt"`
 }
 
 type TireModel struct {
-	ID        int       `json:"id" db:"tire_model_id"`
-	Brand     string    `json:"brand" db:"tire_brand"`
-	Type      string    `json:"type"`
-	Size      string    `json:"size"`
-	DOT       string    `json:"dot" db:"dot"`
-	CreatedAt time.Time `json:"createdAt" db:"tire_model_created_at"`
+	ID        int            `json:"id" db:"tire_model_id"`
+	Brand     sql.NullString `json:"brand" db:"tire_brand"`
+	Type      sql.NullString `json:"type"`
+	Size      sql.NullString `json:"size"`
+	DOT       sql.NullString `json:"dot" db:"dot"`
+	CreatedAt time.Time      `json:"createdAt" db:"tire_model_created_at"`
 }
 
 type TireInventory struct {
@@ -25,24 +34,24 @@ type TireInventory struct {
 	UserID  int  `json:"userId" db:"user_id"`
 	IsSaved bool `json:"isSaved" db:"is_saved"`
 
-	TireModel TireModel `json:"tireModel"`
-	CarDetail CarDetail `json:"carDetail"`
+	TireModel `json:"tireModel"`
+	CarDetail `json:"carDetail"`
 
-	CreatedAt time.Time `json:"createdAt" db:"tire_inventory_created_at"`
-	UpdatedAt time.Time `json:"updatedAt" db:"tire_inventory_updated_at"`
-	DeletedAt time.Time `json:"deletedAt" db:"tire_inventory_deleted_at"`
+	CreatedAt time.Time    `json:"createdAt" db:"tire_inventory_created_at"`
+	UpdatedAt sql.NullTime `json:"updatedAt" db:"tire_inventory_updated_at"`
+	DeletedAt sql.NullTime `json:"deletedAt" db:"tire_inventory_deleted_at"`
 }
 
 type CarDetail struct {
-	ID              int    `json:"id" db:"car_detail_id"`
-	TireInventoryID int    `json:"tireInventoryId"`
-	Brand           string `json:"brand" db:"car_brand"`
-	Model           string `json:"model"`
-	Year            string `json:"year"`
-	LicensePlate    string `json:"licensePlate"`
-	Color           string `json:"color"`
+	ID              sql.NullInt32  `json:"id" db:"car_detail_id"`
+	TireInventoryID sql.NullInt32  `json:"tireInventoryId"`
+	Brand           sql.NullString `json:"brand" db:"car_brand"`
+	Model           sql.NullString `json:"model"`
+	Year            sql.NullString `json:"year"`
+	LicensePlate    sql.NullString `json:"licensePlate"`
+	Color           sql.NullString `json:"color"`
 
-	CreatedAt time.Time `json:"createdAt"`
-	UpdatedAt time.Time `json:"updatedAt"`
-	DeletedAt time.Time `json:"deletedAt"`
+	CreatedAt sql.NullTime `json:"createdAt" db:"car_detail_created_at"`
+	UpdatedAt sql.NullTime `json:"updatedAt"`
+	DeletedAt sql.NullTime `json:"deletedAt"`
 }
