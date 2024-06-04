@@ -8,7 +8,8 @@ import (
 
 type InventoryRepo interface {
 	GetInventories(ctx context.Context, userID int) (*[]TireInventory, error)
-	GetInventoriesByID(ctx context.Context, userID int, inventoryID int) (*TireInventory, error)
+	GetInventoryByID(ctx context.Context, userID int, inventoryID int) (*TireInventory, error)
+	CreateInventory(ctx context.Context, userId int, inventory *TireInventory) error
 }
 
 type Image struct {

@@ -66,7 +66,7 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
 	return &tireInventories, nil
 }
 
-func (s *InventoryRepo) GetInventoriesByID(ctx context.Context, userID int, inventoryID int) (*types.TireInventory, error) {
+func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, inventoryID int) (*types.TireInventory, error) {
 	tireInventories := types.TireInventory{}
 	query := `
     SELECT 
@@ -111,4 +111,11 @@ func (s *InventoryRepo) GetInventoriesByID(ctx context.Context, userID int, inve
 	}
 
 	return &tireInventories, nil
+}
+
+func (s *InventoryRepo) CreateInventory(ctx context.Context, userId int, inventory *types.TireInventory) error {
+	// start transaction
+	//
+	// commit transaction
+	return nil
 }

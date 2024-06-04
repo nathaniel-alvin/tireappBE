@@ -49,7 +49,7 @@ func (h *Handler) handleInventoryIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request) {
-	_ = tireappbe.UserIDFromContext(r.Context())
+	userID := tireappbe.UserIDFromContext(r.Context())
 
 	vars := mux.Vars(r)
 	str, ok := vars["id"]
@@ -57,12 +57,37 @@ func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request) {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
 	}
 
-	_, err := strconv.Atoi(str)
+	invID, err := strconv.Atoi(str)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
 	}
+
+	tire, err := h.store.GetInventoryByID(r.Context(), userID, invID)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.Encode(w, http.StatusOK, tire)
 }
-func (h *Handler) handleInventoryCreate(w http.ResponseWriter, r *http.Request)       {}
+
+func (h *Handler) handleInventoryCreate(w http.ResponseWriter, r *http.Request) {
+	userID := tireappbe.UserIDFromContext(r.Context())
+
+	req, err := utils.Decode[types.TireInventory](r)
+	if err != nil {
+		utils.WriteError(w, http.StatusBadRequest, err)
+		return
+	}
+
+	err = h.store.CreateInventory(r.Context(), userID, &req)
+	if err != nil {
+		utils.WriteError(w, http.StatusInternalServerError, err)
+		return
+	}
+
+	utils.Encode(w, http.StatusOK, nil)
+}
 func (h *Handler) handleInventoryEdit(w http.ResponseWriter, r *http.Request)         {}
 func (h *Handler) handleInventoryDelete(w http.ResponseWriter, r *http.Request)       {}
 func (h *Handler) handleInventorySetCarDetail(w http.ResponseWriter, r *http.Request) {}
