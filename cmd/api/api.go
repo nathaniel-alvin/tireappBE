@@ -8,6 +8,7 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/nathaniel-alvin/tireappBE/db"
 	"github.com/nathaniel-alvin/tireappBE/service/inventory"
+	"github.com/nathaniel-alvin/tireappBE/service/leaderboard"
 	"github.com/nathaniel-alvin/tireappBE/service/user"
 )
 
@@ -34,6 +35,10 @@ func (s *APIServer) Run() error {
 	inventoryStore := db.NewInventoryRepo(s.db)
 	inventoryHandler := inventory.NewHandler(inventoryStore, userStore)
 	inventoryHandler.RegisterRoutes(subrouter)
+
+	leaderboardStore := db.NewLeaderboardRepo(s.db)
+	leaderboardHandler := leaderboard.NewHandler(leaderboardStore, userStore)
+	leaderboardHandler.RegisterRoutes(subrouter)
 
 	log.Println("Listening on", s.addr)
 

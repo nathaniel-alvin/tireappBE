@@ -87,13 +87,11 @@ func CreateTokensAndSetCookies(w http.ResponseWriter, userID int, expireDuration
 }
 
 func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64) error {
-	fmt.Printf("in function")
 	tknStr := c.Value
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
 		return secret, nil
 	})
-	fmt.Printf("1")
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
 			// utils.WriteError(w, http.StatusUnauthorized, err)
@@ -107,15 +105,12 @@ func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64)
 		return err
 	}
 
-	fmt.Printf("2")
 	// cannot refresh token when expire time > 30sec
-	// if time.Until(claims.ExpiresAt.Time) > 30*time.Second {
-	// 	return err
-	// }
-	fmt.Printf("3")
+	if time.Until(claims.ExpiresAt.Time) > 30*time.Second {
+		return err
+	}
+
 	var userID int
-	// claims, ok := token.Claims.(*Claims)
-	// fmt.Printf(""claims)
 	if claims == nil {
 		return fmt.Errorf("empty claim")
 	}
@@ -128,7 +123,6 @@ func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64)
 	// 	return err
 	// }
 
-	fmt.Printf("4")
 	newToken, _, err := createJWT(userID, expireDuration)
 	if err != nil {
 		// utils.WriteError(w, http.StatusInternalServerError, err)

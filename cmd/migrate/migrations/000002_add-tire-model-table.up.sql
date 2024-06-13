@@ -1,8 +1,0 @@
-CREATE TABLE IF NOT EXISTS Tire_Model (
-    id SERIAL PRIMARY KEY,
-    brand VARCHAR(255),
-    type VARCHAR(255),
-    size VARCHAR(255),
-    dot VARCHAR(255),
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);

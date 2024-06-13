@@ -31,7 +31,12 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 }
 
 func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
-	req, err := utils.Decode[types.LoginUserRequest](r)
+	type LoginUserRequest struct {
+		Username string `json:"username" validate:"required"`
+		Password string `json:"password" validate:"required"`
+	}
+
+	req, err := utils.Decode[LoginUserRequest](r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -45,14 +50,14 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// check user exists
-	u, err := h.store.GetUserByEmail(r.Context(), req.Email)
+	u, err := h.store.GetUserByUsername(r.Context(), req.Username)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("incorrect email or password"))
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("incorrect !username or password"))
 		return
 	}
 
 	if !auth.ComparePassword(u.Password, []byte(req.Password)) {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("incorrect email or password"))
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("incorrect username or !password"))
 		return
 	}
 
@@ -66,7 +71,13 @@ func (h *Handler) handleLogin(w http.ResponseWriter, r *http.Request) {
 }
 
 func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
-	req, err := utils.Decode[types.RegisterUserRequest](r)
+	type RegisterUserRequest struct {
+		Username string `json:"username" validate:"required"`
+		// Email    string `json:"email" validate:"required,email"`
+		Password string `json:"password" validate:"required,min=3,max=130"`
+	}
+
+	req, err := utils.Decode[RegisterUserRequest](r)
 	if err != nil {
 		utils.WriteError(w, http.StatusBadRequest, err)
 		return
@@ -79,9 +90,9 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// check if email has been used
-	if _, err := h.store.GetUserByEmail(r.Context(), req.Email); err == nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user with email %s already exixsts", req.Email))
+	// check if username has been used
+	if _, err := h.store.GetUserByUsername(r.Context(), req.Username); err == nil {
+		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("user with username %s already exixsts", req.Username))
 		return
 	}
 
@@ -92,7 +103,6 @@ func (h *Handler) handleRegister(w http.ResponseWriter, r *http.Request) {
 
 	if err = h.store.CreateUser(r.Context(), &types.User{
 		ID:         0,
-		Email:      req.Email,
 		Password:   hashedPassword,
 		Username:   req.Username,
 		Active:     true,
