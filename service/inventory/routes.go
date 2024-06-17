@@ -1,7 +1,6 @@
 package inventory
 
 import (
-	"fmt"
 	"net/http"
 	"strconv"
 
@@ -10,6 +9,8 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/service/auth"
 	"github.com/nathaniel-alvin/tireappBE/types"
 	"github.com/nathaniel-alvin/tireappBE/utils"
+
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
 )
 
 type Handler struct {
@@ -45,7 +46,7 @@ func (h *Handler) handleInventoryIndex(w http.ResponseWriter, r *http.Request) {
 
 	tires, err := h.store.GetInventories(r.Context(), userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -59,19 +60,19 @@ func (h *Handler) handleInventoryView(w http.ResponseWriter, r *http.Request) {
 	vars := mux.Vars(r)
 	str, ok := vars["id"]
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	invID, err := strconv.Atoi(str)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	tire, err := h.store.GetInventoryByID(r.Context(), userID, invID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -87,13 +88,13 @@ func (h *Handler) handleInventoryCreate(w http.ResponseWriter, r *http.Request) 
 
 	req, err := utils.Decode[CreateInventoryRequest](r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid JSON body"))
 		return
 	}
 
 	err = h.store.CreateInventory(r.Context(), userID, &req.TireInventory, &req.TireModel)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -105,19 +106,19 @@ func (h *Handler) handleInventoryDelete(w http.ResponseWriter, r *http.Request) 
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	inventoryID, err := strconv.Atoi(id)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	err = h.store.DeleteInventory(r.Context(), inventoryID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -137,20 +138,20 @@ func (h *Handler) handleInventorySetCarDetail(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	inventoryID, err := strconv.Atoi(id)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	// Decode req
 	req, err := utils.Decode[UpdateCarDetailRequest](r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid JSON body"))
 		return
 	}
 
@@ -165,13 +166,16 @@ func (h *Handler) handleInventorySetCarDetail(w http.ResponseWriter, r *http.Req
 
 	err = h.store.UpdateCarDetail(r.Context(), inventoryID, carDetail)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
 	utils.Encode(w, http.StatusOK, nil)
 }
-func (h *Handler) handleInventorySetWorkshop(w http.ResponseWriter, r *http.Request) {}
+
+func (h *Handler) handleInventorySetWorkshop(w http.ResponseWriter, r *http.Request) {
+	utils.WriteError(w, tireapperror.Errorf(tireapperror.ENOTIMPLEMENTED, "Not implemented"))
+}
 
 func (h *Handler) handleInventorySetTireModel(w http.ResponseWriter, r *http.Request) {
 	type UpdateTireModelRequest struct {
@@ -185,20 +189,20 @@ func (h *Handler) handleInventorySetTireModel(w http.ResponseWriter, r *http.Req
 	vars := mux.Vars(r)
 	id, ok := vars["id"]
 	if !ok {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("missing inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	inventoryID, err := strconv.Atoi(id)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid inventory ID"))
+		utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, "invalid ID format"))
 		return
 	}
 
 	// Decode req
 	req, err := utils.Decode[UpdateTireModelRequest](r)
 	if err != nil {
-		utils.WriteError(w, http.StatusBadRequest, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -212,7 +216,7 @@ func (h *Handler) handleInventorySetTireModel(w http.ResponseWriter, r *http.Req
 
 	err = h.store.UpdateTireModel(r.Context(), inventoryID, tireModel)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 
@@ -231,7 +235,7 @@ func (h *Handler) handleInventoryHistory(w http.ResponseWriter, r *http.Request)
 
 	tires, err := h.store.GetInventoryHistory(r.Context(), userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 

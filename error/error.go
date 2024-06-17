@@ -13,6 +13,7 @@ const (
 	ENOTFOUND       = "not_found"
 	ENOTIMPLEMENTED = "not_implemented"
 	EUNAUTHORIZED   = "unauthorized"
+	EFORBIDDEN      = "forbidden"
 )
 
 // Error represents an application-specific error. Application errors can be
@@ -75,6 +76,7 @@ var codes = map[string]int{
 	ENOTIMPLEMENTED: http.StatusNotImplemented,
 	EUNAUTHORIZED:   http.StatusUnauthorized,
 	EINTERNAL:       http.StatusInternalServerError,
+	EFORBIDDEN:      http.StatusForbidden,
 }
 
 // ErrorStatusCode returns the associated HTTP status code for an error code.

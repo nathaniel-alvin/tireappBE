@@ -2,10 +2,11 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nathaniel-alvin/tireappBE/types"
+
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
 )
 
 type UserRepo struct {
@@ -22,15 +23,15 @@ func (s *UserRepo) GetUserByUsername(ctx context.Context, username string) (*typ
 	users := []types.User{}
 	err := s.db.Select(&users, "SELECT * FROM account WHERE display_name = $1", username)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "query error")
 	}
 
 	if len(users) > 1 {
-		return nil, fmt.Errorf("GetUserByUsername: data error. more than one user found")
+		return nil, tireapperror.Errorf(tireapperror.EINVALID, "data error. more than one user found")
 	}
 
 	if len(users) == 0 {
-		return nil, fmt.Errorf("GetUserByUsername: data error. no user found")
+		return nil, tireapperror.Errorf(tireapperror.EINVALID, "data error. no user found")
 	}
 
 	return &users[0], nil
@@ -40,16 +41,16 @@ func (s *UserRepo) GetUserById(ctx context.Context, id int) (*types.User, error)
 	user := types.User{}
 	err := s.db.Get(&user, "SELECT * FROM account where id = $1", id)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "db error: %v", err)
 	}
-	return &user, err
+	return &user, nil
 }
 
 func (s *UserRepo) CreateUser(ctx context.Context, u *types.User) error {
 	// begin transaction
 	tx, err := s.db.Beginx()
 	if err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "db error: %v", err)
 	}
 	defer tx.Rollback()
 
@@ -58,7 +59,7 @@ func (s *UserRepo) CreateUser(ctx context.Context, u *types.User) error {
 
 	// commit if all operation are successful
 	if err := tx.Commit(); err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "db error: %v", err)
 	}
 
 	return nil

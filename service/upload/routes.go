@@ -1,7 +1,6 @@
 package upload
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gorilla/mux"
@@ -45,7 +44,7 @@ func (h *Handler) handleUpload(w http.ResponseWriter, r *http.Request) {
 
 	_, err := h.store.InsertFileFromRequest(r, userID)
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, fmt.Errorf("failed to insert file into database"))
+		utils.WriteError(w, err)
 		return
 	}
 	// TODO: add tire model details pake method yang dari inventoryStore

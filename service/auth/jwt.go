@@ -9,6 +9,7 @@ import (
 	"github.com/golang-jwt/jwt/v5"
 	tireappbe "github.com/nathaniel-alvin/tireappBE"
 	"github.com/nathaniel-alvin/tireappBE/config"
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
 	"github.com/nathaniel-alvin/tireappBE/types"
 	"github.com/nathaniel-alvin/tireappBE/utils"
 )
@@ -28,7 +29,7 @@ func WithJWTAuth(handlerFunc http.HandlerFunc, store types.UserRepo) http.Handle
 				permissionDenied(w)
 				return
 			}
-			utils.WriteError(w, http.StatusBadRequest, err)
+			utils.WriteError(w, tireapperror.Errorf(tireapperror.EINVALID, err.Error()))
 			return
 		}
 		tokenString := c.Value
@@ -166,7 +167,7 @@ func setCookie(w http.ResponseWriter, name, token string, expiration time.Time) 
 }
 
 func permissionDenied(w http.ResponseWriter) {
-	utils.WriteError(w, http.StatusForbidden, fmt.Errorf("permission denied"))
+	utils.WriteError(w, tireapperror.Errorf(tireapperror.EFORBIDDEN, "permission denied"))
 }
 
 func ValidateJWT(tokenString string) (*jwt.Token, error) {

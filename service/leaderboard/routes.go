@@ -28,7 +28,7 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 func (h *Handler) handleInventoryLeaderboard(w http.ResponseWriter, r *http.Request) {
 	tires, err := h.store.GetTireModelLeaderboard(r.Context())
 	if err != nil {
-		utils.WriteError(w, http.StatusInternalServerError, err)
+		utils.WriteError(w, err)
 		return
 	}
 

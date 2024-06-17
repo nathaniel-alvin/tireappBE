@@ -5,6 +5,8 @@ import (
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nathaniel-alvin/tireappBE/types"
+
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
 )
 
 type LeaderboardRepo struct {
@@ -29,7 +31,7 @@ func (s *LeaderboardRepo) GetTireModelLeaderboard(ctx context.Context) (*[]types
 	`
 	err := s.db.Select(&leaderboard, query)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	return &leaderboard, nil
 }

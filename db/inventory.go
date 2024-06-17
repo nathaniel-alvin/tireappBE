@@ -8,6 +8,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	tireappbe "github.com/nathaniel-alvin/tireappBE"
 	"github.com/nathaniel-alvin/tireappBE/types"
+
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
 )
 
 type InventoryRepo struct {
@@ -58,12 +60,12 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
     `
 	// iseng ngececk aja
 	if userID != tireappbe.UserIDFromContext(ctx) {
-		return nil, fmt.Errorf("different user id when checking with context")
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "incorrect user ID")
 	}
 
 	err := s.db.Select(&tireInventories, query, userID)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	return &tireInventories, nil
@@ -105,12 +107,12 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
     `
 	// iseng ngececk aja
 	if userID != tireappbe.UserIDFromContext(ctx) {
-		return nil, fmt.Errorf("different user id when checking with context")
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "incorrect user ID")
 	}
 
 	err := s.db.Select(&tireInventories, query, userID, inventoryID)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	return &tireInventories, nil
@@ -119,7 +121,7 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
 func (s *InventoryRepo) CreateInventory(ctx context.Context, userID int, i *types.TireInventory, m *types.TireModel) error {
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	defer func() {
 		if err != nil {
@@ -165,7 +167,7 @@ func (s *InventoryRepo) UpdateTireModel(ctx context.Context, inventoryID int, tm
     `
 	_, err := s.db.Exec(query, inventoryID, tm.Brand.String, tm.Type.String, tm.Size.String, tm.DOT.String, time.Now())
 	if err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	return nil
 }
@@ -185,7 +187,7 @@ func (s *InventoryRepo) UpdateCarDetail(ctx context.Context, inventoryID int, cd
 	`
 	_, err := s.db.Exec(query, inventoryID, cd.Make.String, cd.Model.String, cd.Year.String, cd.LicensePlate.String, cd.Color.String, time.Now())
 	if err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	return nil
 }
@@ -200,7 +202,7 @@ func (s *InventoryRepo) DeleteInventory(ctx context.Context, inventoryID int) er
 	`
 	_, err := s.db.Exec(query, inventoryID)
 	if err != nil {
-		return err
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	return nil
 }
@@ -241,12 +243,12 @@ func (s *InventoryRepo) GetInventoryHistory(ctx context.Context, userID int) (*[
     `
 	// iseng ngececk aja
 	if userID != tireappbe.UserIDFromContext(ctx) {
-		return nil, fmt.Errorf("different user id when checking with context")
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "incorrect user ID")
 	}
 
 	err := s.db.Select(&tireInventories, query, userID)
 	if err != nil {
-		return nil, err
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	return &tireInventories, nil
@@ -280,13 +282,13 @@ func createTireModel(ctx context.Context, tx *sqlx.Tx, tm *types.TireModel) (int
 
 	rows, err := tx.NamedQuery(query, params)
 	if err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	for rows.Next() {
 		err := rows.Scan(&TireID)
 		if err != nil {
-			return 0, err
+			return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 		}
 	}
 	return TireID, nil
@@ -309,13 +311,13 @@ func createTireInventory(ctx context.Context, tx *sqlx.Tx, userID int, ti *types
 
 	rows, err := tx.NamedQuery(query, params)
 	if err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	for rows.Next() {
 		err := rows.Scan(&InventoryID)
 		if err != nil {
-			return 0, err
+			return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 		}
 	}
 
@@ -353,13 +355,13 @@ func createCarDetail(ctx context.Context, tx *sqlx.Tx, inventoryID int, cd *type
 	}
 	rows, err := tx.NamedQuery(query, params)
 	if err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	for rows.Next() {
 		err := rows.Scan(&CarDetailID)
 		if err != nil {
-			return 0, err
+			return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 		}
 	}
 
