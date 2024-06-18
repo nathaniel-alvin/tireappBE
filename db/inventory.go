@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 	"time"
 
 	"github.com/jmoiron/sqlx"
@@ -30,6 +29,7 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
         ti.id AS tire_inventory_id,
 		ti.user_id,
 		ti.is_saved,
+		ti.note,
         ti.created_at AS tire_inventory_created_at,
         ti.updated_at AS tire_inventory_updated_at,
         ti.deleted_at AS tire_inventory_deleted_at,
@@ -44,6 +44,7 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
         v.make AS car_make,
         v.model,
         v.year,
+        v.license_plate,
         v.created_at AS car_detail_created_at
     FROM 
         tire_inventory ti
@@ -78,6 +79,7 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
         ti.id AS tire_inventory_id,
 		ti.user_id,
 		ti.is_saved,
+		ti.note,
         ti.created_at AS tire_inventory_created_at,
         ti.updated_at AS tire_inventory_updated_at,
         ti.deleted_at AS tire_inventory_deleted_at,
@@ -91,6 +93,7 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
         v.brand AS car_brand,
         v.model,
         v.year,
+        v.license_plate,
         v.created_at AS car_detail_created_at
     FROM 
         tire_inventory ti
@@ -214,6 +217,7 @@ func (s *InventoryRepo) GetInventoryHistory(ctx context.Context, userID int) (*[
         ti.id AS tire_inventory_id,
 		ti.user_id,
 		ti.is_saved,
+		ti.note,
         ti.created_at AS tire_inventory_created_at,
         ti.updated_at AS tire_inventory_updated_at,
         ti.deleted_at AS tire_inventory_deleted_at,
@@ -227,6 +231,7 @@ func (s *InventoryRepo) GetInventoryHistory(ctx context.Context, userID int) (*[
         v.make AS car_make,
         v.model,
         v.year,
+        v.license_plate,
         v.created_at AS car_detail_created_at
     FROM 
         tire_inventory ti
@@ -296,16 +301,21 @@ func createTireModel(ctx context.Context, tx *sqlx.Tx, tm *types.TireModel) (int
 
 func createTireInventory(ctx context.Context, tx *sqlx.Tx, userID int, ti *types.TireInventory) (int, error) {
 	// authenticate
-	if ok := userID == tireappbe.UserIDFromContext(ctx); !ok {
-		return 0, fmt.Errorf("authentication failed when trying to create inventory")
-	}
+	// if ok := userID == tireappbe.UserIDFromContext(ctx); !ok {
+	// 	return 0, fmt.Errorf("authentication failed when trying to create inventory")
+	// }
+
+	// TEMP: use userID from context
+	userID = tireappbe.UserIDFromContext(ctx)
+
 	var InventoryID int
-	query := "INSERT INTO tire_inventory (user_id, tire_id, is_saved, created_at) VALUES (:user_id, :tire_model_id, :is_saved, :created_at) RETURNING id;"
+	query := "INSERT INTO tire_inventory (user_id, tire_id, is_saved, note, created_at) VALUES (:user_id, :tire_model_id, :is_saved, :note, :created_at) RETURNING id;"
 
 	params := map[string]interface{}{
 		"user_id":       userID,
 		"tire_model_id": ti.TireModel.ID,
 		"is_saved":      ti.IsSaved,
+		"note":          "",
 		"created_at":    time.Now(),
 	}
 
@@ -366,4 +376,69 @@ func createCarDetail(ctx context.Context, tx *sqlx.Tx, inventoryID int, cd *type
 	}
 
 	return CarDetailID, nil
+}
+
+func (s *InventoryRepo) GetTireNotes(ctx context.Context, inventoryID int) (string, error) {
+	var tireNote []string
+
+	query := `
+	SELECT ti.note
+	FROM tire_inventory ti
+	WHERE ti.id = $1;
+	`
+
+	err := s.db.Select(&tireNote, query, inventoryID)
+	if err != nil {
+		return "", tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	if len(tireNote) != 1 {
+		return "", tireapperror.Errorf(tireapperror.EINTERNAL, "more than one inventory: %v", err)
+	}
+
+	return tireNote[0], nil
+}
+
+func (s *InventoryRepo) GetCarDetails(ctx context.Context, inventoryID int) (*types.CarDetail, error) {
+	carDetail := []types.CarDetail{}
+
+	query := `
+	SELECT 
+		vehicle.make as car_make,
+		vehicle.model,
+		vehicle.year,
+		vehicle.license_plate,
+		vehicle.color
+	FROM 
+		vehicle
+	WHERE
+		vehicle.inventory_id = $1;
+	`
+
+	err := s.db.Select(&carDetail, query, inventoryID)
+	if err != nil {
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	if len(carDetail) != 1 {
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "more than one vehicle: %v", err)
+	}
+
+	return &carDetail[0], nil
+}
+
+func (s *InventoryRepo) UpdateInventoryNote(ctx context.Context, inventoryID int, note string) error {
+	query := `
+	UPDATE tire_inventory
+	SET 
+		note = $2,
+		updated_at = $3
+	WHERE id = $1;
+	`
+	_, err := s.db.Exec(query, inventoryID, note, time.Now())
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	return nil
 }

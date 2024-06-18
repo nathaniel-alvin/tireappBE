@@ -15,6 +15,9 @@ type InventoryRepo interface {
 	UpdateCarDetail(ctx context.Context, inventoryID int, cd CarDetail) error
 	DeleteInventory(ctx context.Context, inventoryID int) error
 	GetInventoryHistory(ctx context.Context, userID int) (*[]TireInventory, error)
+	GetTireNotes(ctx context.Context, inventoryID int) (string, error)
+	GetCarDetails(ctx context.Context, inventoryID int) (*CarDetail, error)
+	UpdateInventoryNote(ctx context.Context, userID int, note string) error
 }
 
 type Image struct {
@@ -36,9 +39,10 @@ type TireModel struct {
 }
 
 type TireInventory struct {
-	ID      int  `json:"id" db:"tire_inventory_id"`
-	UserID  int  `json:"userId" db:"user_id"`
-	IsSaved bool `json:"isSaved" db:"is_saved"`
+	ID      int              `json:"id" db:"tire_inventory_id"`
+	UserID  int              `json:"userId" db:"user_id"`
+	IsSaved bool             `json:"isSaved" db:"is_saved"`
+	Note    utils.NullString `json:"note" db:"note"`
 
 	TireModel `json:"tireModel"`
 	CarDetail `json:"carDetail"`
@@ -54,7 +58,7 @@ type CarDetail struct {
 	Make            utils.NullString `json:"make" db:"car_make"`
 	Model           utils.NullString `json:"model"`
 	Year            utils.NullString `json:"year"`
-	LicensePlate    utils.NullString `json:"licensePlate"`
+	LicensePlate    utils.NullString `json:"licensePlate" db:"license_plate"`
 	Color           utils.NullString `json:"color"`
 
 	CreatedAt utils.NullTime `json:"createdAt" db:"car_detail_created_at"`
