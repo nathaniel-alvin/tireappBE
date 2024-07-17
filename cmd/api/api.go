@@ -9,6 +9,7 @@ import (
 	"github.com/nathaniel-alvin/tireappBE/db"
 	"github.com/nathaniel-alvin/tireappBE/service/inventory"
 	"github.com/nathaniel-alvin/tireappBE/service/leaderboard"
+	"github.com/nathaniel-alvin/tireappBE/service/upload"
 	"github.com/nathaniel-alvin/tireappBE/service/user"
 )
 
@@ -31,6 +32,10 @@ func (s *APIServer) Run() error {
 	userStore := db.NewUserRepo(s.db)
 	userHandler := user.NewHandler(userStore)
 	userHandler.RegisterRoutes(subrouter)
+
+	uploadStore := db.NewUploadRepo(s.db)
+	uploadHandler := upload.NewHandler(uploadStore, userStore)
+	uploadHandler.RegisterRoutes(subrouter)
 
 	inventoryStore := db.NewInventoryRepo(s.db)
 	inventoryHandler := inventory.NewHandler(inventoryStore, userStore)

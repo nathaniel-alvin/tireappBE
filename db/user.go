@@ -2,7 +2,6 @@ package db
 
 import (
 	"context"
-	"fmt"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/nathaniel-alvin/tireappBE/types"
@@ -35,8 +34,6 @@ func (s *UserRepo) GetUserByUsername(ctx context.Context, username string) (*typ
 		return nil, tireapperror.Errorf(tireapperror.EINVALID, "data error. no user found")
 	}
 
-	fmt.Printf("done\n")
-
 	return &users[0], nil
 }
 
@@ -62,6 +59,22 @@ func (s *UserRepo) CreateUser(ctx context.Context, u *types.User) error {
 
 	// commit if all operation are successful
 	if err := tx.Commit(); err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "db error: %v", err)
+	}
+
+	return nil
+}
+
+func (s *UserRepo) EditUser(ctx context.Context, userID int, u *types.User) error {
+	query := `UPDATE account
+        SET
+			display_name = $2,
+			password = $3,
+			active = $4
+        WHERE id = $1`
+
+	_, err := s.db.Exec(query, userID, u.Username, u.Password, u.Active)
+	if err != nil {
 		return tireapperror.Errorf(tireapperror.EINTERNAL, "db error: %v", err)
 	}
 

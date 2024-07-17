@@ -10,7 +10,7 @@ import (
 type InventoryRepo interface {
 	GetInventories(ctx context.Context, userID int) (*[]TireInventory, error)
 	GetInventoryByID(ctx context.Context, userID int, inventoryID int) (*TireInventory, error)
-	CreateInventory(ctx context.Context, userID int, i *TireInventory, m *TireModel) error
+	CreateInventory(ctx context.Context, userID int, i *TireInventory, m *TireModel) (int, error)
 	UpdateTireModel(ctx context.Context, inventoryID int, tm TireModel) error
 	UpdateCarDetail(ctx context.Context, inventoryID int, cd CarDetail) error
 	DeleteInventory(ctx context.Context, inventoryID int) error
@@ -21,12 +21,13 @@ type InventoryRepo interface {
 }
 
 type Image struct {
-	ID        int            `json:"id"`
-	Type      string         `json:"type"`
-	Size      uint64         `json:"size"`
-	CreatedAt time.Time      `json:"createdAt"`
-	UpdatedAt utils.NullTime `json:"updatedAt"`
-	DeletedAt utils.NullTime `json:"deletedAt"`
+	ID        int              `json:"id" db:"image_id"`
+	DataUrl   utils.NullString `json:"dataUrl" db:"image_url"`
+	Type      utils.NullString `json:"type" db:"image_type"`
+	Size      utils.NullInt32  `json:"size" db:"image_size"`
+	CreatedAt time.Time        `json:"createdAt" db:"image_created_at"`
+	UpdatedAt utils.NullTime   `json:"updatedAt"`
+	DeletedAt utils.NullTime   `json:"deletedAt"`
 }
 
 type TireModel struct {
@@ -46,6 +47,7 @@ type TireInventory struct {
 
 	TireModel `json:"tireModel"`
 	CarDetail `json:"carDetail"`
+	Image     `json:"image"`
 
 	CreatedAt time.Time      `json:"createdAt" db:"tire_inventory_created_at"`
 	UpdatedAt utils.NullTime `json:"updatedAt" db:"tire_inventory_updated_at"`
@@ -54,7 +56,7 @@ type TireInventory struct {
 
 type CarDetail struct {
 	ID              utils.NullInt32  `json:"id" db:"car_detail_id"`
-	TireInventoryID utils.NullInt32  `json:"tireInventoryId"`
+	TireInventoryID utils.NullInt32  `json:"tireInventoryId" db:"car_detail_inventory_id"`
 	Make            utils.NullString `json:"make" db:"car_make"`
 	Model           utils.NullString `json:"model"`
 	Year            utils.NullString `json:"year"`
@@ -62,6 +64,6 @@ type CarDetail struct {
 	Color           utils.NullString `json:"color"`
 
 	CreatedAt utils.NullTime `json:"createdAt" db:"car_detail_created_at"`
-	UpdatedAt utils.NullTime `json:"updatedAt"`
-	DeletedAt utils.NullTime `json:"deletedAt"`
+	UpdatedAt utils.NullTime `json:"updatedAt" db:"car_detail_updated_at"`
+	DeletedAt utils.NullTime `json:"deletedAt" db:"car_detail_deleted_at"`
 }

@@ -31,7 +31,6 @@ func main() {
 		"file://db/migrate/migrations",
 		config.Envs.DBName,
 		driver,
-		migrate.MigrationsSchema("tireapp_schema"),
 	)
 	if err != nil {
 		log.Fatal(err)

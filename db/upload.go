@@ -1,12 +1,14 @@
 package db
 
 import (
-	"errors"
-	"fmt"
+	"bytes"
 	"log"
 	"net/http"
 	"strings"
 	"time"
+
+	tireapperror "github.com/nathaniel-alvin/tireappBE/error"
+	"github.com/nathaniel-alvin/tireappBE/service/s3"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -18,10 +20,10 @@ import (
 const MaxFilenameBytes = 255
 
 var (
-	ErrFilenameEmpty             = errors.New("filename must be non-empty")
-	ErrFilenameTooLong           = errors.New("filename too long")
-	ErrFilenameHasDotPrefix      = errors.New("filename cannot begin with dots")
-	ErrFilenameIllegalCharacters = errors.New("illegal characters in filename")
+	ErrFilenameEmpty             = tireapperror.Errorf(tireapperror.EINVALID, "filename must be non-empty")
+	ErrFilenameTooLong           = tireapperror.Errorf(tireapperror.EINVALID, "filename too long")
+	ErrFilenameHasDotPrefix      = tireapperror.Errorf(tireapperror.EINVALID, "filename cannot begin with dots")
+	ErrFilenameIllegalCharacters = tireapperror.Errorf(tireapperror.EINVALID, "illegal characters in filename")
 )
 
 type UploadRepo struct {
@@ -37,7 +39,7 @@ func NewUploadRepo(db *sqlx.DB) *UploadRepo {
 func (s UploadRepo) InsertFileFromRequest(r *http.Request, userID int) (int, error) {
 	multipartMaxMemory := mibToBytes(1)
 	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
 	}
 	defer func() {
 		if err := r.MultipartForm.RemoveAll(); err != nil {
@@ -45,13 +47,13 @@ func (s UploadRepo) InsertFileFromRequest(r *http.Request, userID int) (int, err
 		}
 	}()
 
-	_, metadata, err := r.FormFile("file")
+	file, metadata, err := r.FormFile("file")
 	if err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
 	}
 
 	if metadata.Size == 0 {
-		return 0, fmt.Errorf("file is empty")
+		return 0, tireapperror.Errorf(tireapperror.EINVALID, "file is empty")
 	}
 
 	filename, err := parse(metadata.Filename)
@@ -64,10 +66,22 @@ func (s UploadRepo) InsertFileFromRequest(r *http.Request, userID int) (int, err
 		return 0, err
 	}
 
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "failed to read file: %v", err)
+	}
+
+	// upload file to s3
+	ImageURL, err := s3.UploadImageToS3(buf.Bytes(), filename)
+	if err != nil {
+		return 0, err
+	}
+
 	// begin transaction
 	tx, err := s.db.Beginx()
 	if err != nil {
-		return 0, err
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	defer tx.Rollback()
 
@@ -78,25 +92,159 @@ func (s UploadRepo) InsertFileFromRequest(r *http.Request, userID int) (int, err
 	// create tire model -> tire_inventory -> image
 	err = tx.QueryRowx("INSERT INTO tire_model (created_at) VALUES ($1) RETURNING id;", time.Now()).Scan(&TireID)
 	if err != nil {
-		log.Printf("Failed to create tire model: %v", err)
-		return 0, err
+		// log.Printf("Failed to create tire model: %v", err)
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	err = tx.QueryRowx("INSERT INTO tire_inventory (user_id, tire_id, is_saved, created_at) VALUES ($1, $2, $3, $4) RETURNING id;", userID, TireID, false, time.Now()).Scan(&InventoryID)
 	if err != nil {
-		log.Printf("Failed to create scanned tire: %v", err)
-		return 0, err
+		// log.Printf("Failed to create scanned tire: %v", err)
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
-	// TODO: mikirin cara upload gambar ke s3
-	var ImageURL string
-
-	err = tx.QueryRowx("INSERT INTO image (scan_id, data_url, type, size, created_at, filename) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;", InventoryID, ImageURL, contentType, metadata.Size, time.Now(), filename).Scan(&ImageID)
+	err = tx.QueryRowx("INSERT INTO image (inventory_id, data_url, type, size, created_at, filename) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id;", InventoryID, ImageURL, contentType, metadata.Size, time.Now(), filename).Scan(&ImageID)
 	if err != nil {
-		log.Printf("failed to save entry: %v", err)
-		return 0, err
+		// log.Printf("failed to save entry: %v", err)
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
+
+	if err := tx.Commit(); err != nil {
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
 	return InventoryID, nil
+}
+
+func (s *UploadRepo) CreateImageForInventory(r *http.Request, inventoryID int) error {
+	multipartMaxMemory := mibToBytes(1)
+	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
+		return tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
+	}
+	defer func() {
+		if err := r.MultipartForm.RemoveAll(); err != nil {
+			log.Printf("failed to free multipart form resources: %v", err)
+		}
+	}()
+
+	file, metadata, err := r.FormFile("file")
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
+	}
+
+	if metadata.Size == 0 {
+		return tireapperror.Errorf(tireapperror.EINVALID, "file is empty")
+	}
+
+	filename, err := parse(metadata.Filename)
+	if err != nil {
+		return err
+	}
+
+	contentType, err := parseContentType(metadata.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "failed to read file: %v", err)
+	}
+
+	// upload file to s3
+	ImageURL, err := s3.UploadImageToS3(buf.Bytes(), filename)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+	defer tx.Rollback()
+
+	query := "INSERT INTO image (inventory_id, data_url, type, size, created_at, filename) VALUES ($1, $2, $3, $4, $5, $6);"
+	_, err = tx.Exec(query, inventoryID, ImageURL, contentType, metadata.Size, time.Now(), filename)
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	return nil
+}
+
+func (s *UploadRepo) UpdateImageForInventory(r *http.Request, inventoryID int) error {
+	multipartMaxMemory := mibToBytes(1)
+	if err := r.ParseMultipartForm(multipartMaxMemory); err != nil {
+		return tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
+	}
+	defer func() {
+		if err := r.MultipartForm.RemoveAll(); err != nil {
+			log.Printf("failed to free multipart form resources: %v", err)
+		}
+	}()
+
+	file, metadata, err := r.FormFile("file")
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
+	}
+
+	if metadata.Size == 0 {
+		return tireapperror.Errorf(tireapperror.EINVALID, "file is empty")
+	}
+
+	filename, err := parse(metadata.Filename)
+	if err != nil {
+		return err
+	}
+
+	contentType, err := parseContentType(metadata.Header.Get("Content-Type"))
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+	_, err = buf.ReadFrom(file)
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "failed to read file: %v", err)
+	}
+
+	// upload file to s3
+	ImageURL, err := s3.UploadImageToS3(buf.Bytes(), filename)
+	if err != nil {
+		return err
+	}
+
+	tx, err := s.db.Beginx()
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+	defer tx.Rollback()
+
+	query := `
+	UPDATE 
+		image 
+	SET 
+		data_url = $2,
+		type = $3,
+		size = $4,
+		updated_at = $5,
+		filename = $6
+	WHERE 
+		inventory_id = $1`
+	_, err = tx.Exec(query, inventoryID, ImageURL, contentType, metadata.Size, time.Now(), filename)
+	if err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	return nil
 }
 
 // mibToBytes converts an amount in MiB to an amount in bytes.

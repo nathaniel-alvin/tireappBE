@@ -86,3 +86,12 @@ func ErrorStatusCode(code string) int {
 	}
 	return http.StatusInternalServerError
 }
+
+// IsErrorCode checks if an error is of a specific type.
+func IsErrorCode(err error, code string) bool {
+	var e *Error
+	if errors.As(err, &e) {
+		return e.Code == code
+	}
+	return false
+}

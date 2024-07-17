@@ -18,6 +18,10 @@ type Config struct {
 	DBName                 string
 	JWTExpirationInSeconds int64
 	JWTSecret              string
+	BucketName             string
+	BucketRegion           string
+	S3AccessKey            string
+	S3SecretAccessKey      string
 }
 
 var Envs = initConfig()
@@ -36,6 +40,10 @@ func initConfig() Config {
 		DBName:                 getEnv("DB_NAME", "postgres"),
 		JWTExpirationInSeconds: getEnvAsInt("JWT_EXP", 300),
 		JWTSecret:              getEnv("JWT_SECRET", "super-secret-jwt-password"),
+		BucketName:             getEnv("BUCKET_NAME", "tireapp-tire-pictures"),
+		BucketRegion:           getEnv("BUCKET_REGION", "us-east-1"),
+		S3AccessKey:            getEnv("ACCESS_KEY", ""),
+		S3SecretAccessKey:      getEnv("SECRET_ACCESS_KEY", ""),
 	}
 }
 

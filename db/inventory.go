@@ -40,12 +40,17 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
         tm.dot,
         tm.created_at AS tire_model_created_at,
         v.id AS car_detail_id,
-		v.inventory_id AS TireInventoryID,
+		v.inventory_id as car_detail_inventory_id,
         v.make AS car_make,
         v.model,
         v.year,
         v.license_plate,
-        v.created_at AS car_detail_created_at
+        v.created_at AS car_detail_created_at,
+		i.id AS image_id,
+		i.data_url AS image_url,
+		i.type AS image_type,
+		i.size AS image_size,
+		i.created_at AS image_created_at
     FROM 
         tire_inventory ti
     JOIN 
@@ -53,7 +58,7 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
     LEFT JOIN 
         vehicle v ON v.inventory_id = ti.id
     LEFT JOIN 
-        workshop w ON w.inventory_id = ti.id
+		image i ON i.inventory_id = ti.id
     WHERE 
         ti.user_id = $1 AND ti.is_saved = true
     ORDER BY 
@@ -73,7 +78,7 @@ func (s *InventoryRepo) GetInventories(ctx context.Context, userID int) (*[]type
 }
 
 func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, inventoryID int) (*types.TireInventory, error) {
-	tireInventories := types.TireInventory{}
+	tireInventories := []types.TireInventory{}
 	query := `
     SELECT 
         ti.id AS tire_inventory_id,
@@ -90,19 +95,25 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
         tm.dot,
         tm.created_at AS tire_model_created_at,
         v.id AS car_detail_id,
-        v.brand AS car_brand,
+		v.inventory_id as car_detail_inventory_id,
+        v.make AS car_make,
         v.model,
         v.year,
         v.license_plate,
-        v.created_at AS car_detail_created_at
+        v.created_at AS car_detail_created_at,
+		i.id AS image_id,
+		i.data_url AS image_url,
+		i.type AS image_type,
+		i.size AS image_size,
+		i.created_at AS image_created_at
     FROM 
         tire_inventory ti
     JOIN 
         tire_model tm ON ti.tire_id = tm.id
     LEFT JOIN 
-        vehicle v ON v.scan_id = ti.id
+        vehicle v ON v.inventory_id = ti.id
     LEFT JOIN 
-        workshop w ON w.scan_id = ti.id
+		image i ON i.inventory_id = ti.id
     WHERE 
         ti.user_id = $1 AND ti.is_saved = true AND ti.id = $2
     ORDER BY 
@@ -118,13 +129,21 @@ func (s *InventoryRepo) GetInventoryByID(ctx context.Context, userID int, invent
 		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
-	return &tireInventories, nil
+	if len(tireInventories) == 0 {
+		return nil, tireapperror.Errorf(tireapperror.ENOTFOUND, "")
+	}
+
+	if len(tireInventories) > 1 {
+		return nil, tireapperror.Errorf(tireapperror.EINTERNAL, "get inventory by ID: two results returned")
+	}
+
+	return &tireInventories[0], nil
 }
 
-func (s *InventoryRepo) CreateInventory(ctx context.Context, userID int, i *types.TireInventory, m *types.TireModel) error {
+func (s *InventoryRepo) CreateInventory(ctx context.Context, userID int, i *types.TireInventory, m *types.TireModel) (int, error) {
 	tx, err := s.db.BeginTxx(ctx, nil)
 	if err != nil {
-		return tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 	defer func() {
 		if err != nil {
@@ -136,23 +155,26 @@ func (s *InventoryRepo) CreateInventory(ctx context.Context, userID int, i *type
 
 	modelID, err := createTireModel(ctx, tx, m)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	i.TireModel.ID = modelID
 	i.CreatedAt = time.Now()
 	inventoryID, err := createTireInventory(ctx, tx, userID, i)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// create empty car details so we can just update it
 	_, err = createCarDetail(ctx, tx, inventoryID, nil)
 	if err != nil {
-		return err
+		return 0, err
 	}
 
-	return nil
+	// create empty image to update later
+	_, err = createEmptyTireImage(ctx, tx, inventoryID)
+
+	return inventoryID, nil
 }
 
 func (s *InventoryRepo) UpdateTireModel(ctx context.Context, inventoryID int, tm types.TireModel) error {
@@ -228,11 +250,17 @@ func (s *InventoryRepo) GetInventoryHistory(ctx context.Context, userID int) (*[
         tm.dot,
         tm.created_at AS tire_model_created_at,
         v.id AS car_detail_id,
+		v.inventory_id as car_detail_inventory_id,
         v.make AS car_make,
         v.model,
         v.year,
         v.license_plate,
-        v.created_at AS car_detail_created_at
+        v.created_at AS car_detail_created_at,
+		i.id AS image_id,
+		i.data_url AS image_url,
+		i.type AS image_type,
+		i.size AS image_size,
+		i.created_at AS image_created_at
     FROM 
         tire_inventory ti
     JOIN 
@@ -240,7 +268,7 @@ func (s *InventoryRepo) GetInventoryHistory(ctx context.Context, userID int) (*[
     LEFT JOIN 
         vehicle v ON v.inventory_id = ti.id
     LEFT JOIN 
-        workshop w ON w.inventory_id = ti.id
+		image i ON i.inventory_id = ti.id
     WHERE 
         ti.user_id = $1 
     ORDER BY 
@@ -315,7 +343,7 @@ func createTireInventory(ctx context.Context, tx *sqlx.Tx, userID int, ti *types
 		"user_id":       userID,
 		"tire_model_id": ti.TireModel.ID,
 		"is_saved":      ti.IsSaved,
-		"note":          "",
+		"note":          ti.Note.String,
 		"created_at":    time.Now(),
 	}
 
@@ -378,6 +406,24 @@ func createCarDetail(ctx context.Context, tx *sqlx.Tx, inventoryID int, cd *type
 	return CarDetailID, nil
 }
 
+func createEmptyTireImage(ctx context.Context, tx *sqlx.Tx, inventoryID int) (int, error) {
+	var ImageID int
+	query := "INSERT INTO image (inventory_id) VALUES ($1) RETURNING id;"
+
+	rows, err := tx.Queryx(query, inventoryID)
+	if err != nil {
+		return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+	}
+
+	for rows.Next() {
+		err := rows.Scan(&ImageID)
+		if err != nil {
+			return 0, tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
+		}
+	}
+	return ImageID, nil
+}
+
 func (s *InventoryRepo) GetTireNotes(ctx context.Context, inventoryID int) (string, error) {
 	var tireNote []string
 
@@ -404,11 +450,16 @@ func (s *InventoryRepo) GetCarDetails(ctx context.Context, inventoryID int) (*ty
 
 	query := `
 	SELECT 
+		vehicle.id as car_detail_id,
+		vehicle.inventory_id as car_detail_inventory_id,
 		vehicle.make as car_make,
 		vehicle.model,
 		vehicle.year,
 		vehicle.license_plate,
-		vehicle.color
+		vehicle.color,
+		vehicle.created_at as car_detail_created_at,
+		vehicle.updated_at as car_detail_updated_at,
+		vehicle.deleted_at as car_detail_deleted_at
 	FROM 
 		vehicle
 	WHERE

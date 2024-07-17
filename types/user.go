@@ -9,6 +9,7 @@ type UserRepo interface {
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	CreateUser(ctx context.Context, user *User) error
 	GetUserById(ctx context.Context, id int) (*User, error)
+	EditUser(ctx context.Context, userID int, user *User) error
 }
 
 type User struct {

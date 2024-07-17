@@ -87,7 +87,7 @@ func CreateTokensAndSetCookies(w http.ResponseWriter, userID int, expireDuration
 	return accessToken, nil
 }
 
-func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64) error {
+func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64) (string, error) {
 	tknStr := c.Value
 	claims := &Claims{}
 	token, err := jwt.ParseWithClaims(tknStr, claims, func(token *jwt.Token) (interface{}, error) {
@@ -95,27 +95,25 @@ func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64)
 	})
 	if err != nil {
 		if err == jwt.ErrSignatureInvalid {
-			// utils.WriteError(w, http.StatusUnauthorized, err)
-			return err
+			return "", tireapperror.Errorf(tireapperror.EUNAUTHORIZED, "%v", err)
 		}
-		// utils.WriteError(w, http.StatusBadRequest, err)
-		return err
+		return "", tireapperror.Errorf(tireapperror.EINVALID, "%v", err)
 	}
 	if !token.Valid {
-		// utils.WriteError(w, http.StatusUnauthorized, err)
-		return err
+		return "", tireapperror.Errorf(tireapperror.EUNAUTHORIZED, "%v", err)
 	}
 
 	// cannot refresh token when expire time > 30sec
-	if time.Until(claims.ExpiresAt.Time) > 30*time.Second {
-		return err
-	}
+	// if time.Until(claims.ExpiresAt.Time) > 30*time.Second {
+	// 	return tireapperror.Errorf(tireapperror.EINVALID, "Cannot refresh token: token expiration time must be less than 30 seconds.")
+	// }
 
 	var userID int
 	if claims == nil {
-		return fmt.Errorf("empty claim")
+		return "", tireapperror.Errorf(tireapperror.EINVALID, "invalid claim")
 	}
 	userID = claims.UserID
+
 	// if ok && token.Valid && claims != nil {
 	// 	userID = claims.UserID
 	// } else {
@@ -126,15 +124,14 @@ func TokenRefresher(w http.ResponseWriter, c *http.Cookie, expireDuration int64)
 
 	newToken, _, err := createJWT(userID, expireDuration)
 	if err != nil {
-		// utils.WriteError(w, http.StatusInternalServerError, err)
-		return err
+		return "", tireapperror.Errorf(tireapperror.EINTERNAL, "%v", err)
 	}
 
 	expirationDuration := time.Second * time.Duration(expireDuration)
 	expirationTime := time.Now().Add(expirationDuration)
 	setCookie(w, "token", newToken, expirationTime)
 
-	return nil
+	return newToken, nil
 }
 
 func createJWT(userID int, expireDuration int64) (string, time.Time, error) {
