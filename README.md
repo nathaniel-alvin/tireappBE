@@ -1,5 +1,3 @@
-Here's a comprehensive README for the Tire Eye application GitHub repository:
-
 ---
 
 # Tire Eye
