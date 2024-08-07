@@ -92,25 +92,32 @@ To run the application, ensure your environment variables are correctly configur
 ## API Endpoints
 
 ### Authentication
-- **POST** `/api/v1/auth/register` - Register a new user
-- **POST** `/api/v1/auth/login` - Log in a user
+- **POST** `/api/v1/user/register` - Register a new user
+- **POST** `/api/v1/user/login` - Log in a user
+- **POST** `/api/v1/user/edituser` - Edit a user
+- **GET** `/api/v1/user/info` - Get user details
+- **GET** `/api/v1/refresh` - Refresh JWT Token
+
 
 ### Tires
 - **POST** `/api/v1/inventories` - Add a new tire
 - **GET** `/api/v1/inventories` - List all tires
+- **GET** `/api/v1/inventories/history` - List all tire history
+- **GET** `/api/v1/inventories/{id}/car-detail` - Get tire details (car detail)
+- **GET** `/api/v1/inventories/{id}/note` - Get tire details (note)
 - **GET** `/api/v1/inventories/{id}` - Get tire details
-- **PUT** `/api/v1/inventories/{id}` - Update tire information
+- **POST** `/api/v1/inventories/{id}/car-detail` - Update tire information (car detail)
+- **POST** `/api/v1/inventories/{id}/tire-model` - Update tire information (tire-model)
+- **POST** `/api/v1/inventories/{id}/note` - Update tire information (note)
 - **DELETE** `/api/v1/inventories/{id}` - Delete a tire
 
-### Cars
-- **POST** `/api/v1/cars` - Add a new car
-- **GET** `/api/v1/cars` - List all cars
-- **GET** `/api/v1/cars/{id}` - Get car details
-- **PUT** `/api/v1/cars/{id}` - Update car information
-- **DELETE** `/api/v1/cars/{id}` - Delete a car
+### Upload
+- **POST** `/api/v1/upload` - Upload a new tire image
+- **PUT** `/api/v1/upload/{id}` - Update tire image
 
-### Shops
-- **GET** `/api/v1/shops` - Search for nearby tire shops
+### Leaderboard
+- **GET** `/api/v1/leaderboard` - Get most popular tires
+
 
 ## Testing
 
